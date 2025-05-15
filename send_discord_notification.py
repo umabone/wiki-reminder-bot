@@ -7,7 +7,10 @@ WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
 
 def fetch_current_events():
     url = "https://bluearchive.wikiru.jp/"
-    response = requests.get(url)
+    headers = {
+        "User-Agent": "Mozilla/5.0"
+    }
+    response = requests.get(url, headers=headers)
     response.encoding = 'utf-8'
 
     if response.status_code != 200:
@@ -15,24 +18,32 @@ def fetch_current_events():
 
     soup = BeautifulSoup(response.text, 'html.parser')
 
-    event_section = soup.find(string=re.compile("開催中のイベント"))
-    if not event_section:
-        raise Exception("開催中のイベントセクションが見つかりませんでした。")
+    # 「開催中のイベント」という文字を含む <p> タグを探す
+    target_p = None
+    for p in soup.find_all("p"):
+        if "現在開催中のイベント" in p.get_text():
+            target_p = p
+            break
 
-    parent = event_section.find_parent()
-    if not parent:
-        raise Exception("開催中のイベントセクションの親要素が見つかりませんでした。")
+    if not target_p:
+        raise Exception("開催中のイベントの見出し（pタグ）が見つかりませんでした。")
+
+    # <p>の次に来る<ul>タグを取得！
+    event_ul = target_p.find_next_sibling("ul")
+    if not event_ul:
+        raise Exception("イベント一覧のulタグが見つかりませんでした。")
 
     events = []
-    for li in parent.find_next_siblings("ul"):
-        for item in li.find_all("li"):
-            text = item.get_text(strip=True)
-            match = re.match(r"(.*?)(\d{4}/\d{1,2}/\d{1,2}.*)", text)
-            if match:
-                name = match.group(1).strip()
-                period = match.group(2).strip()
-                events.append(f"{name}：{period}")
-        break
+    for li in event_ul.find_all("li"):
+        text = li.get_text(strip=True)
+        match = re.match(r"(.*?)(\d{4}/\d{1,2}/\d{1,2}.*)", text)
+        if match:
+            name = match.group(1).strip()
+            period = match.group(2).strip()
+            events.append(f"{name}：{period}")
+        else:
+            # 日付がなくても一応追加してみる
+            events.append(text)
 
     return events
 
