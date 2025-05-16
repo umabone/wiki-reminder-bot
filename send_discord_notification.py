@@ -231,16 +231,21 @@ def fetch_current_events():
                         event_name = re.sub(pattern, "", event_name)
                     
                     # 2. 時間表記 (10:59) や (3:59) などを除去
-                    event_name = re.sub(r'\(\s*\d{1,2}:\d{2}\)', "", event_name)
+                    event_name = re.sub(time_pattern, "", event_name)
                     
-                    # 3. 余分な記号や空白を整理
+                    # 3. 空の括弧 () を削除
+                    event_name = re.sub(r'\(\s*\)', "", event_name)
+                    
+                    # 4. 余分な記号や空白を整理
                     event_name = re.sub(r'[\s　]+', ' ', event_name).strip()
                     event_name = re.sub(r'[:：]$', '', event_name).strip()
                     
-                    # 4. 最後にチェック - あまりにも短すぎる場合や空になった場合
+                    # 5. 最後にチェック - あまりにも短すぎる場合や空になった場合
                     if len(event_name) < 5:
                         # オリジナルテキストから時間表記だけ除去して使用
                         event_name = re.sub(r'\(\s*\d{1,2}:\d{2}\)', "", text).strip()
+                        # 空の括弧も除去
+                        event_name = re.sub(r'\(\s*\)', "", event_name)
                     
                     # イベント名が空になってしまった場合は「不明なイベント」とする
                     if not event_name:
@@ -325,7 +330,10 @@ def fetch_current_events():
                                                     event_text = ul.get_text(strip=True)
                                                     # 日付パターンと時間表記を除去
                                                     event_text = re.sub(pattern, "", event_text)
-                                                    event_text = re.sub(r'\(\s*\d{1,2}:\d{2}\)', "", event_text)
+                                                    event_text = re.sub(time_pattern, "", event_text)
+                                                    # 空の括弧を削除
+                                                    event_text = re.sub(r'\(\s*\)', "", event_text)
+                                                    
                                                     event_text = re.sub(r'[\s　]+', ' ', event_text).strip()
                                                     
                                                     if len(event_text) < 5:
