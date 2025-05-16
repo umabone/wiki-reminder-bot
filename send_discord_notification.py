@@ -8,7 +8,13 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+# 環境変数から取得
 WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
+
+# 環境変数がなければ、ここにURLを直接指定することもできる
+if not WEBHOOK_URL:
+    # DiscordのWebhook URLを設定してね！
+    WEBHOOK_URL = "https://discord.com/api/webhooks/あなたのWebhook URL"
 
 def fetch_current_events():
     url = "https://bluearchive.wikiru.jp/"
@@ -28,78 +34,197 @@ def fetch_current_events():
         logger.info("ページの取得に成功しました。HTMLの解析を開始します。")
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        # 「開催中のイベント」という文字を含む要素を探す - タグを限定しない
-        target_element = None
+        # デバッグ用：HTMLを保存
+        with open("debug_html.txt", "w", encoding="utf-8") as f:
+            f.write(response.text)
+        logger.info("デバッグ用にHTMLを保存しました。")
         
-        # h2, h3, h4, p, div などのタグをチェック
-        for tag in ["h2", "h3", "h4", "p", "div"]:
-            for element in soup.find_all(tag):
-                if "開催中のイベント" in element.get_text():
-                    target_element = element
-                    logger.info(f"「開催中のイベント」を含む{tag}タグを発見しました。")
-                    break
-            if target_element:
-                break
+        # イベント情報を格納するリスト
+        current_events = []  # 現在開催中のイベントを格納するリスト
         
-        if not target_element:
-            # 代替方法：クラス名を使用して特定のセクションを探す
-            for div in soup.find_all("div", class_=["side-box", "event-box", "contents-box"]):
-                if "開催中" in div.get_text() and "イベント" in div.get_text():
-                    target_element = div
-                    logger.info("クラス名から「開催中のイベント」セクションを発見しました。")
-                    break
-                    
-        if not target_element:
-            logger.error("開催中のイベントの見出しが見つかりませんでした。")
-            raise Exception("開催中のイベントの見出しが見つかりませんでした。")
+        # 現在の日付を取得
+        from datetime import datetime, timedelta
+        today = datetime.now()
+        logger.info(f"現在の日付: {today.strftime('%Y/%m/%d')}")
         
-        # ULタグを探す - 複数の方法で探索
-        event_ul = None
+        # 日付パターンの正規表現（より厳密に）
+        date_patterns = [
+            r"\d{4}[/-]\d{1,2}[/-]\d{1,2}.*?[～~].*?\d{1,2}[/-]\d{1,2}",  # 2025/5/14 ～ 5/21
+            r"\d{4}[/-]\d{1,2}[/-]\d{1,2}.*?\d{1,2}:\d{2}.*?[～~].*?\d{1,2}[/-]\d{1,2}.*?\d{1,2}:\d{2}",  # 2025/5/14 11:00 ～ 5/21 3:59
+            r"\d{4}[/-]\d{1,2}[/-]\d{1,2}.*?[～~].*?",  # 2025/5/14 ～ （終了日不明）
+            r"[～~].*?\d{4}[/-]\d{1,2}[/-]\d{1,2}",  # ～ 2025/5/21（開始日不明）
+        ]
         
-        # 方法1: 直近の兄弟要素を確認
-        event_ul = target_element.find_next_sibling("ul")
+        # ----------------------
+        # リスト項目（li）のみに絞って探す
+        # ----------------------
+        logger.info("リスト項目(li)を探します...")
+        list_items = soup.find_all("li")
+        logger.info(f"{len(list_items)}個のリスト項目が見つかりました。")
         
-        # 方法2: 親要素内のULを探す
-        if not event_ul:
-            parent = target_element.parent
-            event_ul = parent.find("ul")
-            if event_ul:
-                logger.info("親要素内からULタグを発見しました。")
-        
-        # 方法3: 近くの要素を探す
-        if not event_ul:
-            # targetの後にある最初のUL要素を探す
-            next_tags = target_element.find_all_next()
-            for tag in next_tags[:10]:  # 最初の10個の要素だけ確認
-                if tag.name == "ul":
-                    event_ul = tag
-                    logger.info("近くの要素からULタグを発見しました。")
-                    break
-        
-        if not event_ul:
-            logger.error("イベント一覧のulタグが見つかりませんでした。")
-            raise Exception("イベント一覧のulタグが見つかりませんでした。")
-        
-        events = []
-        for li in event_ul.find_all("li"):
+        for li in list_items:
             text = li.get_text(strip=True)
-            logger.info(f"リストアイテム発見: {text}")
             
-            # 正規表現を調整してより多くのフォーマットに対応
-            match = re.search(r"(.*?)[\(（]?(\d{4}[/-]\d{1,2}[/-]\d{1,2}.*?)[\)）]?$", text)
-            if not match:
-                match = re.search(r"(.*?)(\d{4}[/-]\d{1,2}[/-]\d{1,2}.*)", text)
+            # 短すぎるテキストは除外
+            if len(text) < 10:
+                continue
+                
+            logger.info(f"リスト項目のテキスト: {text}")
             
-            if match:
-                name = match.group(1).strip()
-                period = match.group(2).strip()
-                events.append(f"{name}：{period}")
-            else:
-                # 日付がなくても一応追加
-                events.append(text)
+            # 日付パターンを含むかチェック
+            date_found = False
+            date_text = ""
+            
+            for pattern in date_patterns:
+                matches = re.finditer(pattern, text)
+                for match in matches:
+                    date_found = True
+                    date_text = match.group(0)
+                    logger.info(f"日付パターン発見: {date_text}")
+                    break
+                if date_found:
+                    break
+            
+            # 日付パターンが見つからなかったらスキップ
+            if not date_found:
+                continue
+                
+            # 日付をパースして現在進行中かチェック
+            try:
+                # 開始日と終了日を抽出
+                if "～" in date_text:
+                    date_parts = date_text.split("～")
+                elif "~" in date_text:
+                    date_parts = date_text.split("~")
+                else:
+                    continue  # 分割できない場合はスキップ
+                
+                # 開始日の処理
+                start_date_str = date_parts[0].strip()
+                start_match = re.search(r"(\d{4})[/-](\d{1,2})[/-](\d{1,2})", start_date_str)
+                if not start_match:
+                    continue  # 開始日が見つからない場合はスキップ
+                
+                start_year = int(start_match.group(1))
+                start_month = int(start_match.group(2))
+                start_day = int(start_match.group(3))
+                
+                # 時間の処理
+                start_hour = 0
+                start_minute = 0
+                time_match = re.search(r"(\d{1,2}):(\d{2})", start_date_str)
+                if time_match:
+                    start_hour = int(time_match.group(1))
+                    start_minute = int(time_match.group(2))
+                
+                start_date = datetime(start_year, start_month, start_day, start_hour, start_minute)
+                
+                # 終了日の処理
+                if len(date_parts) > 1:
+                    end_date_str = date_parts[1].strip()
+                    
+                    # 終了日に年が含まれていない場合は開始日の年を使用
+                    end_match = re.search(r"(?:(\d{4})[/-])?(\d{1,2})[/-](\d{1,2})", end_date_str)
+                    if not end_match:
+                        # 終了日が見つからない場合は1ヶ月後に設定
+                        end_date = start_date + timedelta(days=30)
+                    else:
+                        end_year = int(end_match.group(1)) if end_match.group(1) else start_year
+                        end_month = int(end_match.group(2))
+                        end_day = int(end_match.group(3))
+                        
+                        # 時間が含まれている場合は考慮
+                        end_hour = 23  # デフォルトは23:59
+                        end_minute = 59
+                        time_match = re.search(r"(\d{1,2}):(\d{2})", end_date_str)
+                        if time_match:
+                            end_hour = int(time_match.group(1))
+                            end_minute = int(time_match.group(2))
+                        
+                        end_date = datetime(end_year, end_month, end_day, end_hour, end_minute)
+                else:
+                    # 終了日が指定されていない場合は1ヶ月後に設定
+                    end_date = start_date + timedelta(days=30)
+                
+                # 現在日が開始日と終了日の間かチェック
+                if start_date <= today <= end_date:
+                    logger.info(f"現在開催中のイベント発見: {text}")
+                    
+                    # イベント名の抽出（日付部分を除去）
+                    event_name = text
+                    for pattern in date_patterns:
+                        event_name = re.sub(pattern, "", event_name).strip()
+                    
+                    # 余計な記号や空白を整理
+                    event_name = re.sub(r'[\s　]+', ' ', event_name).strip()
+                    event_name = re.sub(r'[:：]$', '', event_name).strip()
+                    
+                    # あまりにも短すぎる場合はテキスト全体を使用
+                    if len(event_name) < 5:
+                        event_name = text
+                    
+                    # 日付情報の整形
+                    formatted_date = f"{start_date.strftime('%Y/%m/%d %H:%M')} ～ {end_date.strftime('%Y/%m/%d %H:%M')}"
+                    formatted_event = f"{event_name} ({formatted_date})"
+                    
+                    if formatted_event not in current_events:  # 重複チェック
+                        current_events.append(formatted_event)
+            
+            except Exception as e:
+                logger.warning(f"日付解析中にエラーが発生: {e} - テキスト: {date_text}")
+                continue
         
-        logger.info(f"取得したイベント数: {len(events)}")
-        return events
+        # 何も見つからなかった場合のフォールバック処理
+        if not current_events:
+            logger.warning("リスト項目から現在開催中のイベントが見つかりませんでした。別の方法で再試行します。")
+            
+            # ulタグの中を直接探してみる
+            for ul in soup.find_all("ul"):
+                text = ul.get_text(strip=True)
+                if len(text) > 20:  # 十分な長さがあるか
+                    for pattern in date_patterns:
+                        matches = re.finditer(pattern, text)
+                        for match in matches:
+                            date_text = match.group(0)
+                            logger.info(f"ul内で日付パターン発見: {date_text}")
+                            
+                            try:
+                                # 開始日と終了日の処理（上と同じロジック）
+                                if "～" in date_text or "~" in date_text:
+                                    date_parts = date_text.split("～") if "～" in date_text else date_text.split("~")
+                                    
+                                    # 開始日の処理
+                                    start_date_str = date_parts[0].strip()
+                                    start_match = re.search(r"(\d{4})[/-](\d{1,2})[/-](\d{1,2})", start_date_str)
+                                    if start_match:
+                                        start_year = int(start_match.group(1))
+                                        start_month = int(start_match.group(2))
+                                        start_day = int(start_match.group(3))
+                                        start_date = datetime(start_year, start_month, start_day)
+                                        
+                                        # 終了日の処理
+                                        if len(date_parts) > 1:
+                                            end_date_str = date_parts[1].strip()
+                                            end_match = re.search(r"(?:(\d{4})[/-])?(\d{1,2})[/-](\d{1,2})", end_date_str)
+                                            if end_match:
+                                                end_year = int(end_match.group(1)) if end_match.group(1) else start_year
+                                                end_month = int(end_match.group(2))
+                                                end_day = int(end_match.group(3))
+                                                end_date = datetime(end_year, end_month, end_day, 23, 59)
+                                                
+                                                # 現在日が範囲内かチェック
+                                                if start_date <= today <= end_date:
+                                                    formatted_date = f"{start_date.strftime('%Y/%m/%d')} ～ {end_date.strftime('%Y/%m/%d')}"
+                                                    formatted_event = f"イベント情報 ({formatted_date})"
+                                                    
+                                                    if formatted_event not in current_events:
+                                                        current_events.append(formatted_event)
+                            except Exception as e:
+                                logger.warning(f"フォールバック処理中にエラー: {e}")
+                                continue
+        
+        logger.info(f"最終的に取得した現在開催中のイベント数: {len(current_events)}")
+        return current_events
         
     except requests.RequestException as e:
         logger.error(f"リクエスト中にエラーが発生しました: {e}")
@@ -120,7 +245,7 @@ def main():
 
         if not WEBHOOK_URL:
             logger.error("WEBHOOK_URLが設定されていません。")
-            raise Exception("WEBHOOK_URLが環境変数に設定されていません。")
+            raise Exception("WEBHOOK_URLが環境変数に設定されていないか、コードで直接指定されていません。")
             
         response = requests.post(WEBHOOK_URL, json={"content": content})
         if response.status_code != 204:
