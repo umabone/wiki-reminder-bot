@@ -358,6 +358,9 @@ def fetch_current_events():
         logger.error(f"予期せぬエラーが発生しました: {e}")
         raise
 
+def lambda_handler(event, context):
+    return main()
+
 def main():
     try:
         events = fetch_current_events()
