@@ -84,7 +84,7 @@ def fetch_current_events():
         soup = BeautifulSoup(response.text, 'html.parser')
         
         # デバッグ用：HTMLを保存
-        with open("debug_html.txt", "w", encoding="utf-8") as f:
+        with open("/tmp/debug_html.txt", "w", encoding="utf-8") as f:
             f.write(response.text)
         logger.info("デバッグ用にHTMLを保存しました。")
         
