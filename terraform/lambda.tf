@@ -1,4 +1,4 @@
-resource "aws_iam_role" "lambda_exec" {
+resource "aws_iam_role" "lambda-basic-exec" {
   name = "lambda-basic-exec"
 
   assume_role_policy = jsonencode({

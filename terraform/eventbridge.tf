@@ -1,4 +1,4 @@
-resource "aws_iam_role" "scheduler_invoke" {
+resource "aws_iam_role" "scheduler-invoke-lambda" {
   name = "scheduler-invoke-lambda"
 
   assume_role_policy = jsonencode({
