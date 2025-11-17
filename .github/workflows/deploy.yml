@@ -30,11 +30,13 @@ jobs:
 
       - name: Build Lambda ZIP
         run: |
-          pip install -r requirements.txt -t package/
-          cp main.py package/
-          cd package
+          mkdir -p lambda/package
+          pip install -r lambda/requirements.txt -t lambda/package/
+          cp lambda/send_discord_notification.py lambda/package/
+          cd lambda/package
           zip -r ../lambda.zip .
           cd ..
+        
 
       - name: Terraform Init & Apply
         run: |
