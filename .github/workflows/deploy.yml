@@ -35,8 +35,8 @@ jobs:
           cp lambda/send_discord_notification.py lambda/package/
           cd lambda/package
           zip -r ../lambda.zip .
-          cp lambda.zip terraform/
           cd ..
+          cp lambda.zip terraform/
         
 
       - name: Terraform Init & Apply
