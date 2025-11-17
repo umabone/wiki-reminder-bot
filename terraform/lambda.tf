@@ -16,7 +16,7 @@ resource "aws_iam_role" "lambda-basic-exec" {
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_basic" {
-  role       = aws_iam_role.lambda_exec.name
+  role       = aws_iam_role.lambda-basic-exec.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
@@ -28,7 +28,7 @@ resource "aws_lambda_function" "wiki_reminder_tf" {
   filename         = "${path.module}/lambda.zip"
   source_code_hash = filebase64sha256("${path.module}/lambda.zip")
 
-  role = aws_iam_role.lambda_exec.arn
+  role = aws_iam_role.lambda-basic-exec.arn
 
   timeout = 20
 

@@ -17,7 +17,7 @@ resource "aws_iam_role" "scheduler-invoke-lambda" {
 
 resource "aws_iam_role_policy" "scheduler_invoke_lambda" {
   name = "scheduler-invoke-lambda-policy"
-  role = aws_iam_role.scheduler_invoke.id
+  role = aws_iam_role.scheduler-invoke-lambda.id
 
   policy = jsonencode({
     Version = "2012-10-17",
@@ -43,7 +43,7 @@ resource "aws_scheduler_schedule" "wiki_schedule" {
 
   target {
     arn      = aws_lambda_function.wiki_reminder_tf.arn
-    role_arn = aws_iam_role.scheduler_invoke.arn
+    role_arn = aws_iam_role.scheduler-invoke-lambda.arn
   }
 }
 
