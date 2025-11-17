@@ -34,10 +34,8 @@ jobs:
           pip install -r lambda/requirements.txt -t lambda/package/
           cp lambda/send_discord_notification.py lambda/package/
           cd lambda/package
-          zip -r ../lambda.zip .
+          zip -r ../../terraform/lambda.zip .
           cd ..
-          cp lambda.zip terraform/
-        
 
       - name: Terraform Init & Apply
         run: |
