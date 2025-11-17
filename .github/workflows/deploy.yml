@@ -37,19 +37,8 @@ jobs:
           zip -r ../../terraform/lambda.zip .
           cd ..
 
-      - name: Terraform Init
+      - name: Terraform Init & Apply
         run: |
           cd terraform
           terraform init
-
-      - name: Terraform Import
-        run: |
-          cd terraform
-          terraform import aws_iam_role.scheduler_invoke scheduler-invoke-lambda || true
-          terraform import aws_iam_role.lambda_exec lambda-basic-exec || true
-
-      - name: Terraform Apply
-        run: |
-          cd terraform
           terraform apply -auto-approve
-
