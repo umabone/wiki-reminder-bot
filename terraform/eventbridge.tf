@@ -35,7 +35,7 @@ resource "aws_scheduler_schedule" "wiki_schedule" {
   name       = "wiki-reminder-schedule"
   group_name = "default"
 
-  schedule_expression = "cron(0 21 * * ? *)"
+  schedule_expression = "cron(0 12 * * ? *)"
 
   flexible_time_window {
     mode = "OFF"
