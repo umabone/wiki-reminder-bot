@@ -21,11 +21,14 @@ jobs:
       - name: Install dependencies
         run: pip install requests beautifulsoup4
 
+      - name: Debug - list files
+        run: |
+          pwd
+          ls -R
+
       - name: Run reminder script
         env:
           WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: 
-          pwd
-          ls -R
           cd lambda
           python send_discord_notification.py
