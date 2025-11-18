@@ -29,6 +29,6 @@ jobs:
       - name: Run reminder script
         env:
           WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-        run: 
+        run: |
           cd lambda
           python send_discord_notification.py
