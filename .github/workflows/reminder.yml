@@ -25,5 +25,7 @@ jobs:
         env:
           WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: 
+          pwd
+          ls -R
           cd lambda
           python send_discord_notification.py
