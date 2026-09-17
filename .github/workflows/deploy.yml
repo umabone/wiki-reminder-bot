@@ -38,7 +38,13 @@ jobs:
           cd ..
 
       - name: Terraform Init & Apply
+        env:
+          TF_VAR_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
+          if [ -z "${TF_VAR_WEBHOOK_URL//[[:space:]]/}" ]; then
+            echo "::error::DISCORD_WEBHOOK_URL secret is required."
+            exit 1
+          fi
           cd terraform
-          terraform init
-          terraform apply -auto-approve
+          terraform init -input=false
+          terraform apply -input=false -auto-approve

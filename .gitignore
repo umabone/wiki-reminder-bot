@@ -1,0 +1,18 @@
+# Local secrets and Terraform working files
+*.tfvars
+*.tfvars.json
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+.env
+.env.*
+!.env.example
+
+# Build artifacts
+terraform/lambda.zip
+lambda/package/
+__pycache__/
+*.pyc
